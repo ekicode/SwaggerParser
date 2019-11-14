@@ -1,0 +1,542 @@
+openapi: 3.0.0
+info:
+  title: Cruise Control API
+  description: Cruise-control is the first of its kind to fully automate the dynamic workload rebalance and self-healing of a kafka cluster. It provides great value to Kafka users by simplifying the operation of Kafka clusters.
+  version: 19.10.0
+paths:
+  /kafkacruisecontrol/partition_load:
+    get:
+      summary: Get the resource load for each partition
+      parameters:
+        - name: resource
+          in: query
+          description: The host and broker-level resource by which to sort the cruise-control response
+          schema:
+            type: string
+            enum:
+              - cpu
+              - networkInbound
+              - networkOutbound
+              - disk
+        - name: start
+          in: query
+          description: The timestamp in milliseconds since the Epoch to use as the start
+          schema:
+            type: integer
+            format: int64
+        - name: end
+          in: query
+          description: The timestamp in milliseconds since the Epoch to use as the end
+          schema:
+            type: integer
+            format: int64
+        - name: entries
+          in: query
+          description: The number of entries to show in the response
+          schema:
+            type: integer
+            format: int32
+        - name: topic
+          in: query
+          description: A regular expression used to match the desired topics
+          schema:
+            type: string
+        - name: partition
+          in: query
+          description: 'The partition or [start]-[end] partitions to return'
+          schema:
+            oneOf:
+              - type: integer
+                format: int32
+                example:
+                  - value: 0
+                  - summary: returns 0th partition
+              - type: string
+                pattern: '^[0-9]+-[0-9]+$'
+                example:
+                  - value: 0-9
+                  - summary: 0 is the start index and 9 is the end index of the partition boundaries
+        - name: min_valid_partition_ratio
+          in: query
+          description: 'The minimum required ratio of monitored topics, in range [0.0, 1.0]'
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            maximum: 1
+        - name: allow_capacity_estimation
+          in: query
+          description: Whether to allow capacity estimation when cruise-control is unable to obtain all per-broker capacity information
+          schema:
+            type: boolean
+        - name: max_load
+          in: query
+          description: 'If true, the maximum load is returned'
+          schema:
+            type: boolean
+        - name: avg_load
+          in: query
+          description: 'If true, the average load is returned'
+          schema:
+            type: boolean
+        - name: brokerid
+          in: query
+          description: Set of broker ids used to filter partition load for the report
+          schema:
+            type: array
+            items:
+              type: integer
+              format: int32
+        - name: json
+          in: query
+          description: 'If true, cruise-control''s response is in JSON format'
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successful partition load state response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                    format: int32
+                  records:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        topic:
+                          type: string
+                        partition:
+                          type: integer
+                          format: int32
+                        leader:
+                          type: integer
+                          format: int32
+                        followers:
+                          type: array
+                          items:
+                            type: integer
+                            format: int32
+                        cpu:
+                          type: integer
+                          format: double
+                        networkInbound:
+                          type: integer
+                          format: double
+                        networkOutbound:
+                          type: integer
+                          format: double
+                        disk:
+                          type: integer
+                          format: double
+                        msg_in:
+                          type: integer
+                          format: double
+        '202':
+          description: Partition load state fetch in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1kafkacruisecontrol~1rebalance/post/responses/202/content/application~1json/schema'
+  /kafkacruisecontrol/rebalance:
+    post:
+      summary: Rebalance a Kafka cluster based on goals
+      parameters:
+        - name: dryrun
+          in: query
+          description: Whether dry-run the request or not
+          schema:
+            type: boolean
+            default: true
+        - name: goals
+          in: query
+          description: list of goals used to generate proposal
+          schema:
+            type: array
+            items:
+              type: string
+        - name: allow_capacity_estimation
+          in: query
+          description: Whether to allow broker capacity to be estimated
+          schema:
+            type: boolean
+            default: false
+        - name: concurrent_partition_movements_per_broker
+          in: query
+          description: The upper bound of ongoing replica movements going into/out of each broker
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - name: concurrent_intra_broker_partition_movements
+          in: query
+          description: The upper bound of ongoing replica movements between disks within each broker
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - name: concurrent_leader_movements
+          in: query
+          description: The upper bound of ongoing leadership movements
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - name: json
+          in: query
+          description: Whether to return in JSON format or not
+          schema:
+            type: boolean
+            default: false
+        - name: skip_hard_goal_check
+          in: query
+          description: Whether to allow hard goal be skipped in proposal generation
+          schema:
+            type: boolean
+            default: false
+        - name: excluded_topics
+          in: query
+          description: Whether to allow hard goal be skipped in proposal generation
+          schema:
+            type: string
+            default: null
+        - name: use_ready_default_goals
+          in: query
+          description: Whether to only use ready goals to generate proposal
+          schema:
+            type: boolean
+            default: false
+        - name: data_from
+          in: query
+          description: Whether to calculate proposal from available valid partitions or valid windows
+          schema:
+            type: string
+            default: VALID_WINDOWS
+        - name: verbose
+          in: query
+          description: Return detailed state information
+          schema:
+            type: boolean
+            default: false
+        - name: exclude_recently_demoted_brokers
+          in: query
+          description: Whether to allow leader replicas to be moved to recently demoted broker
+          schema:
+            type: boolean
+            default: false
+        - name: replica_movement_strategies
+          in: query
+          description: Replica movement strategies to use
+          schema:
+            type: array
+            items:
+              type: string
+        - name: ignore_proposal_cache
+          in: query
+          description: Whether to ignore the cached proposal or not
+          schema:
+            type: boolean
+            default: false
+        - name: destination_broker_ids
+          in: query
+          description: Whether to allow leader replicas to be moved to recently demoted broker
+          schema:
+            type: array
+            items:
+              type: string
+        - name: kafka_assigner
+          in: query
+          description: Whether to use Kafka assigner mode to general proposal
+          schema:
+            type: boolean
+            default: false
+        - name: rebalance_disk
+          in: query
+          description: Whether to balance load between brokers or between disks within broker
+          schema:
+            type: boolean
+            default: false
+        - name: review_id
+          in: query
+          description: Review id for 2FA
+          schema:
+            type: string
+        - name: replication_throttle
+          in: query
+          description: Upper bound on the bandwidth used to move replicas
+          schema:
+            type: integer
+            format: int32
+        - name: execution_progress_check_interval_ms
+          in: query
+          description: Execution progress check interval in milliseconds
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Successful rebalance response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        topicPartition:
+                          type: string
+                        oldLeader:
+                          type: integer
+                          format: int32
+                        oldReplicas:
+                          type: array
+                          items:
+                            type: integer
+                            format: int32
+                        newReplicas:
+                          type: array
+                          items:
+                            type: integer
+                            format: int32
+                  loadBeforeOptimization:
+                    $ref: '#/paths/~1kafkacruisecontrol~1rebalance/post/responses/200/content/application~1json/schema/properties/loadAfterOptimization'
+                  summary:
+                    type: object
+                    properties:
+                      numReplicaMovements:
+                        type: integer
+                        format: int32
+                      dataMoveToMB:
+                        type: integer
+                        format: int64
+                      numIntraBrokerReplicaMovements:
+                        type: integer
+                        format: int32
+                      intraBrokerDataToMoveMB:
+                        type: integer
+                        format: int64
+                      numLeaderMovements:
+                        type: integer
+                        format: int32
+                      recentWindows:
+                        type: integer
+                        format: int32
+                      monitoredPartitionsPercentage:
+                        type: number
+                        format: double
+                      excludedTopics:
+                        type: array
+                        items:
+                          type: string
+                      excludedBrokersForLeadership:
+                        type: array
+                        items:
+                          type: integer
+                          format: int32
+                      onDemandBalancednessScoreBefore:
+                        type: number
+                        format: double
+                      onDemandBalancednessScoreAfter:
+                        type: number
+                        format: double
+                  goalSummary:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        goal:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - VIOLATED
+                            - FIXED
+                            - NO-ACTION
+                        clusterModelStats:
+                          type: object
+                          properties:
+                            metadata:
+                              type: object
+                              properties:
+                                brokers:
+                                  type: integer
+                                  format: int32
+                                replicas:
+                                  type: integer
+                                  format: int32
+                                topics:
+                                  type: integer
+                                  format: int32
+                            statistics:
+                              type: object
+                              properties:
+                                avg:
+                                  type: object
+                                  properties:
+                                    potentialNwOut:
+                                      type: number
+                                      format: double
+                                    replicas:
+                                      type: number
+                                    leaderReplicas:
+                                      type: number
+                                    topicReplicas:
+                                      type: number
+                                max:
+                                  $ref: '#/paths/~1kafkacruisecontrol~1rebalance/post/responses/200/content/application~1json/schema/properties/goalSummary/items/properties/clusterModelStats/properties/statistics/properties/avg'
+                                min:
+                                  $ref: '#/paths/~1kafkacruisecontrol~1rebalance/post/responses/200/content/application~1json/schema/properties/goalSummary/items/properties/clusterModelStats/properties/statistics/properties/avg'
+                                std:
+                                  $ref: '#/paths/~1kafkacruisecontrol~1rebalance/post/responses/200/content/application~1json/schema/properties/goalSummary/items/properties/clusterModelStats/properties/statistics/properties/avg'
+                  loadAfterOptimization:
+                    type: object
+                    properties:
+                      version:
+                        type: integer
+                        format: int32
+                      hosts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            host:
+                              type: string
+                            diskMB:
+                              type: number
+                              format: double
+                            diskPct:
+                              type: number
+                              format: double
+                            cpuPct:
+                              type: number
+                              format: double
+                            leaderNwInRate:
+                              type: number
+                              format: double
+                            followerNwInRate:
+                              type: number
+                              format: double
+                            nwOutRate:
+                              type: number
+                              format: double
+                            pnwOutRate:
+                              type: number
+                              format: double
+                            replicas:
+                              type: integer
+                              format: int32
+                            leaders:
+                              type: integer
+                              format: int32
+                      brokers:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            host:
+                              type: string
+                            broker:
+                              type: integer
+                              format: int32
+                            brokerState:
+                              type: string
+                              enum:
+                                - ALIVE
+                                - DEAD
+                                - NEW
+                                - DEMOTED
+                                - BAD_DISKS
+                            diskMB:
+                              type: number
+                              format: double
+                            diskPct:
+                              type: number
+                              format: double
+                            cpuPct:
+                              type: number
+                              format: double
+                            leaderNwInRate:
+                              type: number
+                              format: double
+                            followerNwInRate:
+                              type: number
+                              format: double
+                            nwOutRate:
+                              type: number
+                              format: double
+                            pnwOutRate:
+                              type: number
+                              format: double
+                            replicas:
+                              type: integer
+                              format: int32
+                            leaders:
+                              type: integer
+                              format: int32
+                            diskState:
+                              type: object
+                              additionalProperties:
+                                description: Based on _diskStatsByLogDir
+                                type: object
+                                properties:
+                                  diskMb:
+                                    oneOf:
+                                      - type: string
+                                        enum:
+                                          - DEAD
+                                      - type: number
+                                        format: double
+                                  diskPct:
+                                    oneOf:
+                                      - type: string
+                                        enum:
+                                          - DEAD
+                                      - type: number
+                                        format: double
+                                  numLeaderReplicas:
+                                    type: integer
+                                    format: int32
+                                  numReplicas:
+                                    type: integer
+                                    format: int32
+                  version:
+                    type: integer
+                    format: int32
+        '202':
+          description: Rebalancing in progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                    format: int32
+                  progress:
+                    type: object
+                    properties:
+                      operation:
+                        type: string
+                      operationProgress:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            step:
+                              type: string
+                            description:
+                              type: string
+                            time-in-ms:
+                              type: integer
+                              format: int64
+                            completionPercentage:
+                              type: number
+                              format: double
+
