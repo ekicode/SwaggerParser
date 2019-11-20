@@ -15,3 +15,6 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     compile 'io.swagger.parser.v3:swagger-parser:2.0.15'
 }
+
+apply plugin: 'application'
+mainClassName = 'SchemaParser'

@@ -11,13 +11,18 @@ public class SchemaParser {
 
     /**
      * Constructor for SchemaParser
+     *
+     * @param fileName name of the schema yaml file
      */
     public SchemaParser(String fileName){
         _openAPI = new OpenAPIV3Parser().read(fileName);
     }
 
     /**
-     * return the list of parameters given the path item (an endpoint)
+     * Return the list of parameters given the path item (an endpoint)
+     *
+     * @param pathItem Endpoint defined as a PathItem object
+     * @return set of parameters for the specified endpoint
      */
     public static Set<String> parseEndpoint(PathItem pathItem) throws IllegalArgumentException {
         List<Parameter> parameterList;
@@ -38,6 +43,8 @@ public class SchemaParser {
 
     /**
      * parse the entire schema defined in yaml file and return the schema object
+     *
+     * @return object representing the schema defined in the yaml file
      */
     public Schema parseSchema() {
         Schema parsedSchema = new Schema();
@@ -60,6 +67,9 @@ public class SchemaParser {
 
         /**
          * Add endpoint with the set of parameters to the schema
+         *
+         * @param endpoint name of the endpoint
+         * @param parameters set of parameters for the endpoint
          */
         public void addEndpoint(String endpoint, Set<String> parameters) {
             _schema.put(endpoint, parameters);
@@ -74,6 +84,8 @@ public class SchemaParser {
 
         /**
          * Get all the parameters of the given endpoint
+         *
+         * @param endpoint name of the endpoint
          */
         public Set<String> getParameters(String endpoint) {
             return _schema.get(endpoint);
@@ -99,7 +111,7 @@ public class SchemaParser {
     /**
      * Main method to parse the schema and print the parameters for each endpoint
      */
-    public static void main( String[] args ) {
+    public static void main(String[] args) {
         SchemaParser schemaParser = new SchemaParser("./schemas/schema.yaml");
         Schema parsedSchema = schemaParser.parseSchema();
         System.out.println(parsedSchema);
