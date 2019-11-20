@@ -37,18 +37,63 @@ public class SchemaParser {
     }
 
     /**
-     * parse the entire schema defined in yaml file and return map of endpoints and parameters
+     * parse the entire schema defined in yaml file and return the schema object
      */
-    public Map<String, Set<String>> parseSchema() {
-        // map to be returned; key: endpoint name, value: set of parameters
-        Map<String, Set<String>> parsedSchema = new HashMap<>();
-
+    public Schema parseSchema() {
+        Schema parsedSchema = new Schema();
         Paths paths = _openAPI.getPaths();
         for (String endpoint : paths.keySet()) {
-            System.out.println("Parsing endpoint " + endpoint);
-            parsedSchema.put(endpoint, parseEndpoint(paths.get(endpoint)));
+            parsedSchema.addEndpoint(endpoint, parseEndpoint(paths.get(endpoint)));
         }
         return parsedSchema;
+    }
+
+    private class Schema {
+        Map<String, Set<String>> _schema;
+
+        /**
+         * Constructor for Schema
+         */
+        public Schema() {
+            _schema = new HashMap<>();
+        }
+
+        /**
+         * Add endpoint with the set of parameters to the schema
+         */
+        public void addEndpoint(String endpoint, Set<String> parameters) {
+            _schema.put(endpoint, parameters);
+        }
+
+        /**
+         * Get all the endpoints of the schema as a set of string
+         */
+        public Set<String> getEndpoints() {
+            return _schema.keySet();
+        }
+
+        /**
+         * Get all the parameters of the given endpoint
+         */
+        public Set<String> getParameters(String endpoint) {
+            return _schema.get(endpoint);
+        }
+
+        /**
+         * Override toString method for pretty-printing schema
+         */
+        @Override
+        public String toString() {
+            StringBuilder stringBuilder = new StringBuilder();
+            for (String endpoint : getEndpoints()) {
+                stringBuilder.append(String.format("\nEndpoint %s\n", endpoint));
+                int parameterIndex = 0;
+                for (String parameter : getParameters(endpoint)) {
+                    stringBuilder.append(String.format("parameter #%d %s\n", ++parameterIndex, parameter));
+                }
+            }
+            return stringBuilder.toString();
+        }
     }
 
     /**
@@ -56,13 +101,7 @@ public class SchemaParser {
      */
     public static void main( String[] args ) {
         SchemaParser schemaParser = new SchemaParser("./schemas/schema.yaml");
-        Map<String, Set<String>> parsedSchema = schemaParser.parseSchema();
-        for (String endpoint : parsedSchema.keySet()) {
-            System.out.println("\nEndpoint " + endpoint);
-            int parameterIndex = 0;
-            for (String parameter : parsedSchema.get(endpoint)) {
-                System.out.println(String.format("parameter #%d %s", ++parameterIndex, parameter));
-            }
-        }
+        Schema parsedSchema = schemaParser.parseSchema();
+        System.out.println(parsedSchema);
     }
 }
