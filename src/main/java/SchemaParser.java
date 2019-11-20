@@ -3,6 +3,8 @@ import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.parser.core.models.ParseOptions;
+import io.swagger.v3.parser.core.models.SwaggerParseResult;
 
 import java.util.*;
 
@@ -11,11 +13,9 @@ public class SchemaParser {
 
     /**
      * Constructor for SchemaParser
-     *
-     * @param fileName name of the schema yaml file
      */
-    public SchemaParser(String fileName){
-        _openAPI = new OpenAPIV3Parser().read(fileName);
+    public SchemaParser(){
+        _openAPI = new SchemaCompiler().compile();
     }
 
     /**
@@ -108,11 +108,27 @@ public class SchemaParser {
         }
     }
 
+    private class SchemaCompiler {
+        /**
+         * Compile the schema files and return the resulting openapi object
+         */
+        public OpenAPI compile() {
+            OpenAPIV3Parser openApiParser = new OpenAPIV3Parser();
+            String baseFileName = "./schemas/base.yaml";
+            ParseOptions options = new ParseOptions();
+            options.setResolve(true);
+            options.setFlatten(true);
+
+            SwaggerParseResult parseResult = openApiParser.readLocation(baseFileName, null, options);
+            return parseResult.getOpenAPI();
+        }
+    }
+
     /**
      * Main method to parse the schema and print the parameters for each endpoint
      */
     public static void main(String[] args) {
-        SchemaParser schemaParser = new SchemaParser("./schemas/schema.yaml");
+        SchemaParser schemaParser = new SchemaParser();
         Schema parsedSchema = schemaParser.parseSchema();
         System.out.println(parsedSchema);
     }
